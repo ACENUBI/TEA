@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exposoma → ASD · Plataforma Clínica</title>
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:#F1EFE8;min-height:100vh}
+button,select,input{font-family:inherit}
+select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888780' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:26px!important}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:#F1EFE8}
+::-webkit-scrollbar-thumb{background:#D3D1C7;border-radius:10px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useMemo}=React;
+
+// ── PALETA POR BIOTIPO ───────────────────────────────────
+const BCLR={
+  1:{a:"#E24B4A",bg:"#FCEBEB",m:"#A32D2D"},
+  2:{a:"#BA7517",bg:"#FAEEDA",m:"#854F0B"},
+  3:{a:"#3B6D11",bg:"#EAF3DE",m:"#27500A"},
+  4:{a:"#7F77DD",bg:"#EEEDFE",m:"#534AB7"},
+  5:{a:"#0F6E56",bg:"#E1F5EE",m:"#085041"},
+};
+const EMO={1:"🔥",2:"⚡",3:"🦠",4:"☣️",5:"🧬"};
+
+// ── DATOS: BIOTIPOS ──────────────────────────────────────
+const BIOTIPOS=[
+  {id:1,nombre:"Neuroinflamatorio / Inmune",desc:"Alta activación microglial, IL-6 elevada, regresión del desarrollo, comorbilidad autoinmune.",
+    sintomas:[{id:"1a",t:"Regresión del desarrollo (pérdida de habilidades adquiridas)",w:3},{id:"1b",t:"Brain fog / niebla mental observable",w:2},{id:"1c",t:"Comorbilidad autoinmune (Hashimoto, PANDAS, PANS)",w:3},{id:"1d",t:"Conducta empeora marcadamente con infecciones febriles",w:3},{id:"1e",t:"Cambios conductuales correlacionados con dieta (azúcar/gluten)",w:2},{id:"1f",t:"Irritabilidad cíclica sin causa clara identificable",w:2},{id:"1g",t:"Enrojecimiento facial / calor episódico sin causa",w:1}],
+    marcadores:["PCR-us >0.5 mg/L","IL-6 >3 pg/mL","TNF-α >8 pg/mL","Calprotectina fecal >100 µg/g","Anticuerpos anti-cerebro (NMDAR, CASPR2)"],
+    vuln:"MUY ALTA",
+    interv:["Vitamina D3 + K2","Omega-3 EPA/DHA >2 g/día","Luteolina + Quercetina","Probióticos (L. reuteri DSM 17938 + B. longum 1714)","Dieta AIMM antiinflamatoria","Eliminar gluten/caseína si anticuerpos elevados"]},
+  {id:2,nombre:"Metabólico / Mitocondrial",desc:"Disfunción mitocondrial, estrés oxidativo elevado, intolerancia al ejercicio, fatiga crónica.",
+    sintomas:[{id:"2a",t:"Fatiga crónica desproporcionada al nivel de actividad",w:3},{id:"2b",t:"Intolerancia al ejercicio / conducta empeora post-ejercicio",w:2},{id:"2c",t:"Regresión conductual asociada a fiebre o enfermedades",w:3},{id:"2d",t:"Acidosis láctica episódica documentada",w:3},{id:"2e",t:"Hipoglucemia o variabilidad glucémica marcada",w:2},{id:"2f",t:"Hipotonía muscular documentada",w:2},{id:"2g",t:"Comorbilidad epiléptica o EEG alterado",w:2}],
+    marcadores:["Lactato/piruvato >25","CoQ10 plasmático <0.8 µg/mL","Carnitina libre <25 nmol/mL","Ácidos orgánicos en orina alterados"],
+    vuln:"ALTA",
+    interv:["CoQ10 Ubiquinol 5–8 mg/kg/día","L-Carnitina + Acetil-L-Carnitina","Riboflavina B2 activa (FMN)","Tiamina TTFD (biodisponible)","Magnesio bisglicinato","Evitar Hg y pesticidas (mitocondriotóxicos)"]},
+  {id:3,nombre:"Disbiosis / GI",desc:"Síntomas GI dominantes, selectividad alimentaria extrema, disbiosis documentada.",
+    sintomas:[{id:"3a",t:"Constipación crónica (<3 dep/semana, Bristol 1–2)",w:3},{id:"3b",t:"Dolor abdominal recurrente o autoestimulación del abdomen",w:3},{id:"3c",t:"Selectividad alimentaria extrema (<15 alimentos)",w:2},{id:"3d",t:"Conductas repetitivas que disminuyen después de defecar",w:3},{id:"3e",t:"Flatulencia excesiva / distensión abdominal",w:2},{id:"3f",t:"Diarrea crónica o alternancia diarrea/constipación",w:2},{id:"3g",t:"Historia de múltiples ciclos de antibióticos",w:2}],
+    marcadores:["Calprotectina fecal >150 µg/g","Zonulina sérica >30 ng/mL","p-cresol urinario elevado","SIBO positivo (H₂/CH₄ aliento)"],
+    vuln:"ALTA",
+    interv:["L. reuteri DSM 17938 (cepa específica)","B. longum 1714 (cepa específica)","Prebióticos graduales: GOS → FOS → inulina","Dieta de eliminación (identificar triggers)","Enzimas digestivas con comidas","Tratar SIBO/SIFO si confirmado"]},
+  {id:4,nombre:"Tóxico / Detox Comprometido",desc:"Carga tóxica elevada, sensibilidad química múltiple, polimorfismos en enzimas de detox.",
+    sintomas:[{id:"4a",t:"Sensibilidad química múltiple (perfumes, limpiadores, humos)",w:3},{id:"4b",t:"Reacciones cutáneas/mucosas ante exposición ambiental",w:2},{id:"4c",t:"Exposición documentada a metales (agua, zona industrial)",w:3},{id:"4d",t:"Piel muy sensible o eccemas crónicos sin causa alérgica",w:2},{id:"4e",t:"Intolerancia marcada a múltiples alimentos sin patrón",w:2},{id:"4f",t:"Ácido úrico elevado en orina o sangre",w:2},{id:"4g",t:"Residencia en zona agrícola o cerca de industria",w:2}],
+    marcadores:["Metales orina/cabello elevados (Pb>5, Hg>5 µg/g)","Porfirinas urinarias elevadas","GSH eritrocitario <1.0 µmol/gHb","Sulfato/sulfito ratio alterado"],
+    vuln:"MÁXIMA",
+    interv:["NAC 15 mg/kg/día (precursor GSH)","Sulforafano (activador Nrf2 / Fase II)","Crucíferas diarias + ajo crudo","Pectina cítrica modificada 5–15 g/día","Reducción radical de fuentes de exposición","Zeolita clínica micronizada (supervisado)"]},
+  {id:5,nombre:"Epigenético / Metilación",desc:"MTHFR/COMT comprometidos, hipometilación global, déficit de folato cerebral.",
+    sintomas:[{id:"5a",t:"MTHFR C677T o A1298C confirmado por genotipado",w:3},{id:"5b",t:"Homocisteína elevada (>8 µmol/L niños; >10 adultos)",w:3},{id:"5c",t:"Lenguaje expresivo más comprometido que comprensivo",w:2},{id:"5d",t:"Empeoramiento al tomar ácido fólico sintético",w:3},{id:"5e",t:"Ansiedad/irritabilidad con metilfolato (COMT lento)",w:2},{id:"5f",t:"Folato RBC bajo con folato sérico normal",w:3},{id:"5g",t:"Hiperuricosuría o hiperuricemia documentada",w:2}],
+    marcadores:["Homocisteína >8 µmol/L","Folato RBC <400 nmol/L","Metilmalónico elevado","SAM/SAH ratio <5","MTHFR por genotipado"],
+    vuln:"ALTA",
+    interv:["5-MTHF L-metilfolato (NUNCA ácido fólico sintético)","Metilcobalamina + Adenosilcobalamina","Folinato de calcio si CFRA+","Colina (fosfatidilcolina, CDP-colina)","Riboflavina B2 (cofactor MTHFR)","Betaína TMG si homocisteína muy elevada"]},
+];
+
+// ── DATOS: SUPLEMENTOS ───────────────────────────────────
+const SUPL=[
+  {id:1,n:"Vitamina D3 + K2",cat:"Fundamentos",ev:"alta",fase:1,bios:[1,2,3,4,5],forma:"Colecalciferol D3 + MK-7 (Menaquinona-7). EVITAR D2 o K1.",ped:"2000–4000 UI D3 + 45 µg K2/día",adulto:"5000 UI D3 + 90–180 µg K2/día",timing:"Con comida grasa (almuerzo)",mec:"VDR densamente expresado en hipocampo, amígdala y CPF (estructuras más vulnerables al exposoma según Genon et al. 2026 [P]). Modulación microglial, BDNF, serotonina (TPH2), tolerogénesis inmune.",mono:"25-OH-D sérica a 8 semanas. Meta: 50–80 ng/mL",prec:"Hipercalcemia si dosis altas sin K2. K2-MK7 ESENCIAL para dirigir calcio a hueso. Monitorear calcio sérico si >8000 UI/día.",int:"Sinergia con Mg (cofactor VDR). Sinergia con Omega-3. Antagonismo con calcio sin K2."},
+  {id:2,n:"Magnesio Bisglicinato",cat:"Fundamentos",ev:"alta",fase:1,bios:[1,2,3,4,5],forma:"Bisglicinato o L-Treonato. EVITAR óxido y carbonato (<4% biodisponibilidad).",ped:"3–5 mg/kg/día en 2 tomas",adulto:"400–600 mg/día",timing:"Tarde/noche (cofactor melatonina, efecto relajante)",mec:"Bloqueo fisiológico del canal NMDA (balance E/I). Cofactor síntesis de melatonina. >300 enzimas. Quelación funcional contra plomo.",mono:"Mg eritrocitario (NO sérico). Meta: 5.5–6.5 mg/dL",prec:"Diarrea osmótica a dosis altas → cambiar forma o reducir. El Mg sérico no refleja el intracelular.",int:"Sinergia crítica con B6-P5P (Programa Rimland). Antagonismo con calcio excesivo."},
+  {id:3,n:"Omega-3 EPA/DHA",cat:"Fundamentos",ev:"alta",fase:1,bios:[1,2,3,4,5],forma:"TG reconvertido; ratio EPA:DHA ≥2:1. Certificación IFOS obligatoria.",ped:"1–2 g EPA+DHA/día",adulto:"2–4 g EPA+DHA/día",timing:"Con la comida más grasa del día",mec:"DHA componente estructural de membranas en amígdala, hipocampo y CPF. EPA precursor de resolvinas y protectinas (SPM). Inhibe NF-κB.",mono:"Omega-3 index eritrocitario. Meta: >8%",prec:"Verificar pureza metales pesados (IFOS). Interacción con anticoagulantes. Efecto antiinflamatorio con delay 4–8 semanas.",int:"Sinergia con Vitamina D. Vitamina E tocoferol protege DHA de oxidación."},
+  {id:4,n:"Zinc Bisglicinato",cat:"Fundamentos",ev:"alta",fase:1,bios:[1,3,4,5],forma:"Bisglicinato o Picolinato. EVITAR gluconato a dosis altas.",ped:"0.3–0.5 mg/kg/día",adulto:"20–40 mg/día",timing:"Con comida. Separado del hierro mínimo 2 horas.",mec:"Síntesis de metalotioneínas (quelación metales del exposoma). Barrera intestinal (tight junctions). BDNF. >300 metaloproteínas.",mono:"Zn sérico + Cu sérico. Ratio Zn/Cu: 0.9–1.2",prec:"⚠️ NO exceder 50 mg/día — depleta cobre. Monitorear ratio Zn/Cu.",int:"Antagonismo crítico con Cu (ratio 8:1). Antagonismo con Fe (dar separados). Sinergia con B6-P5P."},
+  {id:5,n:"5-MTHF Metilfolato",cat:"Metilación",ev:"alta",fase:2,bios:[5],forma:"L-5-MTHF (Metafolin®, Quatrefolic®). ABSOLUTAMENTE EVITAR ácido fólico sintético en MTHFR+.",ped:"400–800 µg/día",adulto:"800–1600 µg/día",timing:"Mañana con desayuno",mec:"Donador universal de metilo vía SAM. Síntesis de serotonina, dopamina, norepinefrina. Metilación de ADN e histonas. Reducción homocisteína.",mono:"Homocisteína (meta <8 µmol/L). Folato RBC (meta >600 nmol/L).",prec:"⚠️ COMT lento: puede acumular dopamina → ansiedad, irritabilidad. Iniciar 200 µg y aumentar gradualmente. Si empeora → cambiar a folinato de calcio.",int:"Sinergia esencial con B12 (ciclo de metionina). Folato cerebral independiente del sérico (vía CFRA)."},
+  {id:6,n:"Metilcobalamina + Adenosilcobalamina",cat:"Metilación",ev:"alta",fase:2,bios:[5],forma:"Formas activas 1:1 (sublingual o IM). EVITAR cianocobalamina.",ped:"500–1000 µg/día",adulto:"1000–2000 µg/día",timing:"Metilcobalamina: mañana. Adenosilcobalamina: tarde.",mec:"Metilcobalamina: donador de metilo en ciclo de metionina. Adenosilcobalamina: cofactor mitocondrial. Mielina. Regeneración de GSH vía transulfuración.",mono:"Holotranscobalamina (meta >50 pmol/L). Metilmalónico urinario.",prec:"Raramente 'metilación excesiva': agitación, insomnio → reducir dosis. Polimorfismo TCN2 puede requerir dosis mayores.",int:"Cofactores del mismo ciclo con 5-MTHF. Sinergia con riboflavina B2."},
+  {id:7,n:"NAC (N-Acetil-Cisteína)",cat:"Antioxidante",ev:"media-alta",fase:2,bios:[1,2,4],forma:"NAC polvo micronizado o cápsulas de liberación sostenida.",ped:"15 mg/kg/día en 2 tomas",adulto:"600–1200 mg/día",timing:"Con o sin alimentos. Iniciar mitad de dosis 2 semanas.",mec:"Precursor de cisteína para síntesis de GSH. Modulación de NMDA (balance E/I). RCTs en ASD: reducción significativa de irritabilidad y conductas repetitivas.",mono:"GSH eritrocitario (meta >1.5 µmol/gHb). Ratio GSH/GSSG (meta >3).",prec:"Olor a azufre (difícil adherencia). Con SIBO activo puede alimentar bacterias productoras de sulfuro.",int:"Sinergia con sulforafano (doble inducción GSH). Vitamina C recicla GSH oxidado."},
+  {id:8,n:"Sulforafano",cat:"Antioxidante",ev:"media-alta",fase:2,bios:[1,4],forma:"Extracto brócoli sprout (glucosinolato + mirosinasa ACTIVA). No calentar >60°C.",ped:"50–150 µmol/día (>6 años)",adulto:"150–300 µmol/día",timing:"Con alimentos frescos.",mec:"Activador más potente de Nrf2 → HO-1, NQO1, GST (Fase II hepática). Reduce neuroinflamación vía NF-κB. RCTs Hopkins (Singh 2014, 2023): mejoras conductuales significativas en ASD.",mono:"ATEC, ABC-C irritabilidad. 8-OHdG urinario.",prec:"⚠️ Goitrógeno potencial en hipotiroidismo → monitorear TSH. Mirosinasa inactiva con calor >60°C.",int:"Sinergia con NAC (doble inducción GSH). Potencia crucíferas alimentarias."},
+  {id:9,n:"Probióticos neuro-específicos",cat:"Microbioma",ev:"media",fase:2,bios:[1,3],forma:"L. reuteri DSM 17938 + B. longum 1714 — CEPAS ESPECÍFICAS NO INTERCAMBIABLES. Refrigeración obligatoria.",ped:"10⁸–10⁹ UFC/cepa/día",adulto:"10⁹–10¹⁰ UFC/cepa/día",timing:"Con desayuno (kéfir o leche protegen del ácido gástrico)",mec:"L. reuteri DSM 17938: recupera producción de oxitocina (modelos ASD, vía nervio vago). B. longum 1714: reduce cortisol, mejora cognición. GABA entérico. Reducción permeabilidad intestinal.",mono:"Calprotectina fecal. Diario GI (Bristol). ATEC a 8 semanas.",prec:"⚠️ Die-off en ~15%: irritabilidad transitoria 1–2 semanas. Iniciar dosis mínima. Si SIBO activo, considerar tratar primero.",int:"Potencian efecto de GOS/FOS (prebióticos). Colostro bovino si permeabilidad severa."},
+  {id:10,n:"CoQ10 Ubiquinol",cat:"Mitocondrial",ev:"media",fase:3,bios:[2],forma:"Ubiquinol (forma reducida activa). EVITAR ubiquinona en disfunción mitocondrial severa.",ped:"5–8 mg/kg/día en 2 tomas",adulto:"200–600 mg/día",timing:"Con comidas con grasa (liposoluble)",mec:"Transportador de electrones en cadena respiratoria (Complejos I-III-IV). Antioxidante mitocondrial fundamental. Específicamente deficiente en Biotipo 2.",mono:"CoQ10 plasmático (meta >1.0 µg/mL). Lactato/piruvato.",prec:"Puede reducir eficacia de warfarina. Inicio gradual para evitar molestias GI.",int:"Sinergia con L-Carnitina (función mitocondrial). Sinergia con riboflavina."},
+  {id:11,n:"L-Carnitina + Acetil-L-Carnitina",cat:"Mitocondrial",ev:"media",fase:3,bios:[2],forma:"L-Carnitina base + Acetil-L-Carnitina en combinación.",ped:"L-Carnitina: 50 mg/kg/día + Acetil: 25 mg/kg/día",adulto:"L-Carnitina: 1500–3000 mg + Acetil: 500–1500 mg/día",timing:"Antes de comidas. Acetil-L-Carnitina por la mañana.",mec:"Transporte de ácidos grasos de cadena larga a mitocondria (β-oxidación). Remoción de acilcarnitinas tóxicas. Acetil-L-Carnitina: neurótrofica, donadora de acetilo para acetilcolina.",mono:"Carnitina libre y acilcarnitinas séricas. Lactato/piruvato.",prec:"⚠️ TMAO: microbiota puede convertir carnitina en TMAO si hay disbiosis severa → TRATAR DISBIOSIS PRIMERO.",int:"Sinergia esencial con CoQ10. Sinergia con riboflavina B2."},
+  {id:12,n:"Luteolina + Quercetina",cat:"Antiinflamatorio",ev:"media",fase:2,bios:[1],forma:"Luteolina 100 mg + Quercetina 200 mg (combinación sinérgica — LutiMax o equivalente).",ped:"50–100 mg luteolina + 100–200 mg quercetina/día",adulto:"100–200 mg luteolina + 200–400 mg quercetina/día",timing:"Con comida grasa.",mec:"Inhibición NF-κB. Estabilización de mastocitos (hiperactivados en ASD). Reducción IL-6 y TNF-α. Luteolina cruza la BHE. Taliou et al.: mejoras conductuales en ensayo ASD.",mono:"Clínico: irritabilidad (ABC-C). PCR-us.",prec:"Quercetina inhibe CYP3A4 → verificar fármacos que usen esta vía (AEDs, inmunosupresores).",int:"Sinergia con Vitamina D y EPA/DHA (NF-κB por múltiples vías)."},
+  {id:13,n:"Melatonina",cat:"Circadiano",ev:"alta",fase:1,bios:[1,2,3,4,5],forma:"IR (liberación inmediata) para conciliación; LP (prolongada) para despertares nocturnos.",ped:"0.5–3 mg (inicio: 0.5 mg; ajuste mensual)",adulto:"1–5 mg",timing:"30–60 min antes de la hora objetivo de dormir",mec:"Sincronizador del ritmo circadiano (SCN). Antioxidante mitocondrial (MT1/MT2). Modulador inmune antiinflamatorio. Producción endógena reducida 50–80% en ASD (polimorfismo ASMT).",mono:"CSHQ. 6-Sulfatomelatonina nocturna si disponible.",prec:"⚠️ Supervisión médica en <3 años. No superar 5 mg en niños. Reevaluar cada 3 meses.",int:"Sinergia con Mg. Oscuridad total amplifica el efecto."},
+  {id:14,n:"Vitamina B6 P5P",cat:"Metilación",ev:"media-alta",fase:2,bios:[2,5],forma:"Piridoxal-5-Fosfato (activa). NUNCA piridoxina HCl >50 mg/día.",ped:"0.5–1 mg/kg/día (SIEMPRE con Mg)",adulto:"25–50 mg/día con Mg",timing:"Mañana/mediodía con alimentos",mec:"Cofactor síntesis de GABA, serotonina, dopamina. Metabolismo homocisteína (transulfuración). Metalotioneínas con Zinc. COMT y MAO.",mono:"Ácido xanturénico urinario (meta <25 mg/24h).",prec:"⚠️ Piridoxina HCl puede causar neuropatía periférica >100 mg/día. P5P segura hasta 100 mg bajo supervisión. SIEMPRE con Mg.",int:"Sinergia CRÍTICA con Mg (Programa Rimland). Sinergia con Zn para metalotioneínas."},
+];
+
+// ── DATOS: BIOMARCADORES ─────────────────────────────────
+const BMARK=[
+  {id:1,n:"25-OH-Vitamina D",cat:"Nutricional",muestra:"Sangre (suero)",freq:"Basal, 2m, 6m",opt:"50–80 ng/mL",insuf:"20–49",def:"<20",rel:"Modulación neuroinflamatoria, BDNF, serotonina, tolerogénesis inmune",acc:"Alta",costo:"Bajo"},
+  {id:2,n:"PCR Ultrasensible",cat:"Inflamación",muestra:"Sangre",freq:"Basal, 3m, 6m",opt:"<0.5 mg/L",insuf:"0.5–1.0",def:">1.0",rel:"Inflamación sistémica; dominio interno del exposoma [Genon 2026 P]",acc:"Alta",costo:"Bajo"},
+  {id:3,n:"Homocisteína plasmática",cat:"Metilación",muestra:"Plasma (ayunas)",freq:"Basal, 3m",opt:"<8 µmol/L (niños)",insuf:"8–12",def:">12",rel:"Vía de metilación; déficit B12/folato/B6; riesgo neurovascular",acc:"Alta",costo:"Bajo"},
+  {id:4,n:"Zinc + Cobre sérico",cat:"Nutricional",muestra:"Sangre (ayunas)",freq:"Basal, 3m",opt:"Zn 80–110 µg/dL; ratio 0.9–1.2",insuf:"Ratio alterado",def:"Zn <60 o ratio <0.7/>1.4",rel:"Metalotioneínas; quelación metales del exposoma; inmunidad intestinal",acc:"Alta",costo:"Bajo"},
+  {id:5,n:"Omega-3 Index eritrocitario",cat:"Nutricional",muestra:"Eritrocitos",freq:"Basal, 4m",opt:">8% EPA+DHA",insuf:"4–8%",def:"<4%",rel:"Estado antiinflamatorio; DHA cerebral estructural; calidad dieta",acc:"Media",costo:"Medio"},
+  {id:6,n:"Calprotectina Fecal",cat:"Intestinal",muestra:"Heces (1 g)",freq:"Basal, 3m, 6m",opt:"<50 µg/g",insuf:"50–150",def:">150",rel:"Inflamación intestinal; eje gut-brain [Genon 2026 P]; permeabilidad",acc:"Alta",costo:"Bajo-Medio"},
+  {id:7,n:"Zonulina sérica",cat:"Intestinal",muestra:"Suero",freq:"Basal, 6m",opt:"<30 ng/mL",insuf:"30–50",def:">50",rel:"Permeabilidad intestinal; endotoxemia LPS; neuroinflamación",acc:"Media",costo:"Medio"},
+  {id:8,n:"Glutatión eritrocitario (GSH)",cat:"Oxidativo",muestra:"Eritrocitos (procesamiento especial)",freq:"Basal, 3m",opt:"GSH >1.5 µmol/gHb; GSH/GSSG >3",insuf:"GSH 1.0–1.5",def:"GSH <1.0",rel:"Capacidad antioxidante total; respuesta al exposoma oxidativo; Fase II",acc:"Media",costo:"Medio"},
+  {id:9,n:"8-OHdG urinario",cat:"Oxidativo",muestra:"Orina matutina (1ª micción)",freq:"Basal, 3m, 6m",opt:"<15 ng/mg creatinina",insuf:"15–25",def:">25",rel:"Daño oxidativo al ADN por el exposoma; estrés oxidativo sistémico",acc:"Media",costo:"Medio"},
+  {id:10,n:"Cortisol salival ×4",cat:"Hormonal",muestra:"Saliva (AM, mediodía, tarde, noche)",freq:"Basal, 6m",opt:"Pico AM >8 ng/mL; ratio AM/PM >3",insuf:"Patrón plano",def:"AM <5 o patrón invertido",rel:"Eje HPA; exposoma psicosocial (SES/ACEs dominantes en Genon 2026 [P])",acc:"Media",costo:"Medio"},
+  {id:11,n:"Folato eritrocitario",cat:"Metilación",muestra:"Eritrocitos",freq:"Basal, 3m",opt:">600 nmol/L",insuf:"400–600",def:"<400",rel:"Estado de metilación; déficit de folato cerebral; síntesis NT",acc:"Alta",costo:"Bajo"},
+  {id:12,n:"CoQ10 plasmático",cat:"Mitocondrial",muestra:"Plasma EDTA (refrigerado)",freq:"Basal (Biotipo 2)",opt:">1.0 µg/mL",insuf:"0.5–1.0",def:"<0.5",rel:"Cadena respiratoria mitocondrial; déficit específico en Biotipo 2",acc:"Baja",costo:"Alto"},
+  {id:13,n:"Lactato / Piruvato",cat:"Mitocondrial",muestra:"Sangre venosa (ayunas, rápido)",freq:"Basal (Biotipo 2)",opt:"Lactato <2.0 mmol/L; L/P <25",insuf:"Lactato 2.0–2.5",def:"Lactato >2.5 o L/P >25",rel:"Disfunción mitocondrial; Biotipo 2; cadena respiratoria comprometida",acc:"Media",costo:"Medio"},
+  {id:14,n:"Magnesio eritrocitario",cat:"Nutricional",muestra:"Eritrocitos (NO sérico)",freq:"Basal, 3m",opt:"5.5–6.5 mg/dL",insuf:"4.5–5.5",def:"<4.5",rel:"Estado real de Mg intracelular (sérico no lo refleja); NMDA, mitocondria",acc:"Media",costo:"Medio"},
+  {id:15,n:"ATEC Score",cat:"Conductual",muestra:"Cuestionario parental (online, gratis)",freq:"Basal, cada 4–8 semanas",opt:"Reducción >10 pts en 12 semanas",insuf:"Reducción <5 pts",def:"Sin cambio o aumento",rel:"Respuesta conductual global al protocolo (lenguaje, socialización, GI)",acc:"Muy Alta",costo:"Ninguno"},
+];
+
+// ── DATOS: PRIORIZACIÓN ──────────────────────────────────
+const PRIO=[
+  {id:1,n:"Vitamina D3 + K2",imp:5,fac:5,costo:"Bajo",ev:"directa",q:"A"},
+  {id:2,n:"Omega-3 EPA/DHA",imp:5,fac:4,costo:"Medio",ev:"directa",q:"A"},
+  {id:3,n:"Magnesio bisglicinato",imp:4,fac:5,costo:"Bajo",ev:"directa",q:"A"},
+  {id:4,n:"Higiene sueño + Melatonina",imp:5,fac:4,costo:"Bajo",ev:"directa",q:"A"},
+  {id:5,n:"Filtración de agua",imp:4,fac:5,costo:"Bajo-Medio",ev:"marco exposoma",q:"A"},
+  {id:6,n:"Probióticos (L. reuteri + B. longum)",imp:4,fac:4,costo:"Medio",ev:"directa",q:"A"},
+  {id:7,n:"Zinc bisglicinato",imp:4,fac:4,costo:"Bajo",ev:"directa",q:"B"},
+  {id:8,n:"Dieta AIMM antiinflamatoria",imp:5,fac:2,costo:"Medio-Alto",ev:"directa",q:"B"},
+  {id:9,n:"5-MTHF + Metilcobalamina",imp:4,fac:4,costo:"Medio",ev:"directa",q:"B"},
+  {id:10,n:"Eliminar pesticidas (Dirty Dozen orgánico)",imp:5,fac:3,costo:"Alto",ev:"marco exposoma",q:"B"},
+  {id:11,n:"NAC",imp:3,fac:3,costo:"Bajo-Medio",ev:"directa",q:"C"},
+  {id:12,n:"Sulforafano",imp:4,fac:3,costo:"Medio",ev:"directa",q:"C"},
+  {id:13,n:"Luteolina + Quercetina",imp:3,fac:3,costo:"Medio",ev:"directa",q:"C"},
+  {id:14,n:"CoQ10 Ubiquinol (Biotipo 2)",imp:4,fac:3,costo:"Alto",ev:"inferida",q:"C"},
+  {id:15,n:"Reducción EMF nocturno",imp:2,fac:4,costo:"Ninguno",ev:"inferida",q:"D"},
+  {id:16,n:"Sauna infrarrojo pediátrico",imp:3,fac:2,costo:"Alto",ev:"inferida",q:"D"},
+];
+
+// ── DATOS: TIMELINE ──────────────────────────────────────
+const PHASES=[
+  {id:1,titulo:"Semanas 1–4",sub:"Fundamentos y estabilización",clr:"#185FA5",lt:"#E6F1FB",
+    hito:"Laboratorio basal · ATEC basal · Diario GI · CSHQ",
+    items:[{tp:"supl",t:"Vitamina D3 + K2"},{tp:"supl",t:"Magnesio bisglicinato (tarde/noche)"},{tp:"supl",t:"Omega-3 EPA/DHA (con comida)"},{tp:"supl",t:"Melatonina 0.5 mg (ajustar semanalmente)"},{tp:"dieta",t:"Eliminar colorantes artificiales y azúcar añadida"},{tp:"dieta",t:"Reducir ultraprocesados NOVA-4 al máximo"},{tp:"estilo",t:"Higiene del sueño: oscuridad total, hora fija ±30 min"},{tp:"ambient",t:"Instalar filtro de agua (carbón activado u ósmosis inversa)"},{tp:"ambient",t:"Apagar WiFi nocturno en habitación del niño"},{tp:"lab",t:"Solicitar: 25-OH-D · Zn/Cu · Omega-3 index · calprotectina · homocisteína · Mg eritrocitario"}]},
+  {id:2,titulo:"Semanas 5–12",sub:"Intervención nutricional activa",clr:"#0F6E56",lt:"#E1F5EE",
+    hito:"ATEC semana 8 · ABC-C · Calprotectina fecal",
+    items:[{tp:"supl",t:"Zinc bisglicinato (separado del hierro)"},{tp:"supl",t:"Probióticos: L. reuteri DSM 17938 + B. longum 1714"},{tp:"supl",t:"NAC (mitad de dosis → dosis completa semana 7)"},{tp:"supl",t:"Si MTHFR+ u homocisteína >8: 5-MTHF + Metilcobalamina"},{tp:"supl",t:"Vitamina B6 P5P (siempre con Magnesio)"},{tp:"dieta",t:"Protocolo AIMM: crucíferas diarias, pescado 3×/semana"},{tp:"dieta",t:"Prebióticos graduales: pectina de manzana → GOS → FOS"},{tp:"estilo",t:"Actividad física: natación/trampolín 3×/semana"},{tp:"ambient",t:"Sustituir productos de limpieza por naturales"},{tp:"ambient",t:"Reemplazar utensilios de teflón por acero 316L o vidrio"}]},
+  {id:3,titulo:"Semanas 13–24",sub:"Optimización y profundización",clr:"#854F0B",lt:"#FAEEDA",
+    hito:"Re-laboratorio semana 16 · Revisión biotipo · ATEC",
+    items:[{tp:"supl",t:"Ajustar dosis según re-laboratorio"},{tp:"supl",t:"Sulforafano si oxidativo elevado o Biotipo 4"},{tp:"supl",t:"Luteolina + Quercetina si Biotipo 1"},{tp:"supl",t:"CoQ10 Ubiquinol + L-Carnitina solo si Biotipo 2 confirmado"},{tp:"supl",t:"Evaluar melatonina: ¿cambiar de IR a LP?"},{tp:"dieta",t:"Cronodieta: ventana alimentaria 8–10h diurna"},{tp:"dieta",t:"Si GFCF: reintroducción gradual con food chaining"},{tp:"estilo",t:"Regulación vagal: respiración 4-7-8, canto/tarareo"},{tp:"ambient",t:"Si metales confirmados: pectina cítrica modificada 5 g/día"}]},
+  {id:4,titulo:"Mes 6+",sub:"Mantenimiento sostenible",clr:"#534AB7",lt:"#EEEDFE",
+    hito:"Revisión anual · SRS-2 · Ajuste de protocolo",
+    items:[{tp:"supl",t:"Fundamentos permanentes: D3+K2, Omega-3, Mg"},{tp:"supl",t:"Todos los demás: reevaluar cada 6 meses"},{tp:"lab",t:"Panel semestral: 25-OH-D · Zn/Cu · folato RBC · calprotectina"},{tp:"dieta",t:"AIMM como patrón permanente; orgánico en Dirty Dozen"},{tp:"estilo",t:"Rutinas de sueño y luz como hábito familiar"},{tp:"lab",t:"Escalas: ATEC + SRS-2 + CSHQ + BRIEF-2 cada 6 meses"}]},
+];
+
+// ── HELPERS ──────────────────────────────────────────────
+const evC=ev=>ev==="alta"?{bg:"#EAF3DE",c:"#3B6D11",l:"Alta"}:ev==="media-alta"?{bg:"#E6F1FB",c:"#185FA5",l:"Media-alta"}:ev==="media"?{bg:"#FAEEDA",c:"#854F0B",l:"Media"}:{bg:"#F1EFE8",c:"#5F5E5A",l:"Emergente"};
+const faseC=f=>f===1?{bg:"#E6F1FB",c:"#185FA5",l:"Fase 1"}:f===2?{bg:"#FAEEDA",c:"#854F0B",l:"Fase 2"}:{bg:"#EEEDFE",c:"#534AB7",l:"Fase 3"};
+const tpC={supl:{bg:"#E6F1FB",c:"#185FA5",l:"Supl."},dieta:{bg:"#EAF3DE",c:"#3B6D11",l:"Dieta"},estilo:{bg:"#FAEEDA",c:"#854F0B",l:"Estilo"},ambient:{bg:"#EEEDFE",c:"#534AB7",l:"Ambient."},lab:{bg:"#FCEBEB",c:"#A32D2D",l:"Lab"}};
+const qMeta={A:{l:"Hacer primero",bg:"#EAF3DE",c:"#3B6D11"},B:{l:"Planificar",bg:"#E6F1FB",c:"#185FA5"},C:{l:"Considerar",bg:"#FAEEDA",c:"#854F0B"},D:{l:"Evaluar",bg:"#F1EFE8",c:"#5F5E5A"}};
+
+// ── COMPONENTES PEQUEÑOS ─────────────────────────────────
+function Bdg({children,bg,color,size=11}){return <span style={{background:bg,color,fontSize:size,padding:"2px 7px",borderRadius:20,fontWeight:600,whiteSpace:"nowrap",display:"inline-block"}}>{children}</span>;}
+function FR({label,val,warn=false}){return(
+  <div style={{marginBottom:9}}>
+    <div style={{fontSize:10.5,fontWeight:600,color:warn?"#A32D2D":"#888780",textTransform:"uppercase",letterSpacing:0.4,marginBottom:2}}>{label}</div>
+    <div style={{fontSize:12.5,color:warn?"#501313":"#2C2C2A",background:warn?"#FCEBEB":"transparent",padding:warn?"5px 8px":"0",borderRadius:warn?6:0,lineHeight:1.5,border:warn?"0.5px solid #F7C1C1":"none"}}>{val}</div>
+  </div>
+);}
+
+// ── APP PRINCIPAL ────────────────────────────────────────
+function App(){
+  const [tab,setTab]=useState("biotipos");
+  const [ck,setCk]=useState({});
+  const [openB,setOpenB]=useState(null);
+  const [openS,setOpenS]=useState(null);
+  const [ss,setSs]=useState("");
+  const [sfev,setSfev]=useState("all");
+  const [sffa,setSffa]=useState("all");
+  const [sfbi,setSfbi]=useState("all");
+  const [bsq,setBsq]=useState("");
+  const [bcat,setBcat]=useState("all");
+  const [matSel,setMatSel]=useState(null);
+  const [aiTxt,setAiTxt]=useState("");
+  const [aiLoad,setAiLoad]=useState(false);
+  const [aiErr,setAiErr]=useState("");
+
+  const scores=useMemo(()=>BIOTIPOS.map(b=>{
+    const s=b.sintomas.reduce((a,x)=>a+(ck[x.id]?x.w:0),0);
+    const m=b.sintomas.reduce((a,x)=>a+x.w,0);
+    return{id:b.id,s,m,p:Math.round(s/m*100)};
+  }),[ck]);
+
+  const topB=useMemo(()=>[...scores].filter(x=>x.p>=25).sort((a,b)=>b.p-a.p),[scores]);
+  const toggle=id=>setCk(p=>({...p,[id]:!p[id]}));
+
+  const genAI=async()=>{
+    if(!topB.length)return;
+    setAiLoad(true);setAiTxt("");setAiErr("");
+    const bl=topB.map(s=>{const b=BIOTIPOS.find(x=>x.id===s.id);return`${b.nombre} (${s.p}%)`;}).join(", ");
+    const sl=Object.keys(ck).filter(k=>ck[k]).map(k=>{for(const b of BIOTIPOS){const s=b.sintomas.find(x=>x.id===k);if(s)return s.t;}return"";}).filter(Boolean).join("; ");
+    try{
+      const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Eres científico clínico de élite en nutrición funcional y neurobiología del ASD. Responde en español.\n\nBIOTIPOS: ${bl}\nSÍNTOMAS: ${sl}\n\nResumen clínico conciso (<280 palabras) para profesional de salud:\n\n**PERFIL BIOLÓGICO DOMINANTE:**\n**HIPÓTESIS MECANÍSTICA:** (2–3 vías)\n**INTERVENCIONES PRIORITARIAS:** (top 5 con justificación)\n**BIOMARCADORES CLAVE:** (4 análisis)\n**PRECAUCIONES ESPECÍFICAS:** (2–3 alertas)\n\nLenguaje clínico preciso. Indica [EVIDENCIA DIRECTA] vs [INFERENCIA].`}]})});
+      const d=await r.json();
+      setAiTxt(d.content?.map(c=>c.text||"").join("")||"Sin respuesta.");
+    }catch{setAiErr("Error de conexión al generar el resumen.");}
+    setAiLoad(false);
+  };
+
+  const TABS=[{id:"biotipos",l:"Biotipos",e:"🧬"},{id:"protocolo",l:"Protocolo",e:"📋"},{id:"suplementos",l:"Suplementos",e:"💊"},{id:"biomarcadores",l:"Biomarcadores",e:"🧪"},{id:"priorizacion",l:"Priorización",e:"📊"},{id:"timeline",l:"Timeline",e:"📅"}];
+
+  return(
+    <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif",background:"#F1EFE8",minHeight:"100vh"}}>
+
+      {/* HEADER */}
+      <div style={{background:"#0F2544",color:"#fff",position:"sticky",top:0,zIndex:100}}>
+        <div style={{maxWidth:1340,margin:"0 auto",padding:"0 16px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 0 0"}}>
+            <div style={{width:34,height:34,background:"rgba(255,255,255,0.1)",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>🧠</div>
+            <div>
+              <div style={{fontSize:15,fontWeight:500}}>Exposoma → ASD · Plataforma clínica</div>
+              <div style={{fontSize:10,opacity:0.5,marginTop:1}}>Genon et al., Nature Reviews Neuroscience 2026 · [P] dato directo del paper · [DR] Deep Research</div>
+            </div>
+            {topB.length>0&&(
+              <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center",background:"rgba(255,255,255,0.1)",padding:"4px 10px",borderRadius:20,fontSize:11}}>
+                <span style={{opacity:0.65}}>Perfil activo:</span>
+                {topB.slice(0,2).map(s=>{const b=BIOTIPOS.find(x=>x.id===s.id);return<span key={s.id}>{EMO[b.id]} {s.p}%</span>;})}
+              </div>
+            )}
+          </div>
+          <div style={{display:"flex",gap:1,marginTop:8,overflowX:"auto"}}>
+            {TABS.map(t=>(
+              <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"7px 12px",border:"none",cursor:"pointer",fontSize:12,fontWeight:500,borderRadius:"6px 6px 0 0",transition:"all 0.12s",display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap",background:tab===t.id?"#F1EFE8":"transparent",color:tab===t.id?"#0F2544":"rgba(255,255,255,0.72)"}}>
+                <span style={{fontSize:13}}>{t.e}</span>{t.l}
+                {t.id==="biotipos"&&topB.length>0?<span style={{width:5,height:5,borderRadius:"50%",background:"#EF9F27",display:"inline-block"}}/>:null}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:1340,margin:"0 auto",padding:"20px 16px"}}>
+
+        {/* ═══════════ TAB BIOTIPOS ═══════════ */}
+        {tab==="biotipos"&&(
+          <div>
+            <h1 style={{fontSize:18,fontWeight:500,color:"#2C2C2A",margin:"0 0 4px"}}>Calculadora de biotipos clínicos</h1>
+            <p style={{fontSize:12.5,color:"#5F5E5A",margin:"0 0 18px"}}>Selecciona los síntomas y marcadores presentes. El perfil biológico dominante se calcula en tiempo real. <strong>[DR]</strong></p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(390px,1fr))",gap:12,marginBottom:18}}>
+              {BIOTIPOS.map(b=>{
+                const sc=scores.find(s=>s.id===b.id);
+                const C2=BCLR[b.id];
+                const open=openB===b.id;
+                const active=sc.p>=25;
+                return(
+                  <div key={b.id} style={{background:"#fff",borderRadius:12,border:`1px solid ${active?C2.a:"#D3D1C7"}`,overflow:"hidden",boxShadow:active?`0 0 0 1px ${C2.a}15`:"none"}}>
+                    <div onClick={()=>setOpenB(open?null:b.id)} style={{padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:9,background:active?C2.bg:"#fff",userSelect:"none"}}>
+                      <span style={{fontSize:20}}>{EMO[b.id]}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:500,fontSize:13,color:"#1e293b"}}>{b.nombre}</div>
+                        <div style={{fontSize:10.5,color:"#5F5E5A",marginTop:2,lineHeight:1.3}}>{b.desc}</div>
+                      </div>
+                      <div style={{textAlign:"right",minWidth:46}}>
+                        <div style={{fontSize:22,fontWeight:500,color:sc.p>=50?C2.a:sc.p>=25?"#BA7517":"#B4B2A9",lineHeight:1}}>{sc.p}%</div>
+                        <div style={{fontSize:9.5,color:"#888780"}}>{sc.s}/{sc.m} pts</div>
+                      </div>
+                      <span style={{fontSize:11,color:"#888780",marginLeft:3}}>{open?"▲":"▼"}</span>
+                    </div>
+                    <div style={{height:3,background:"#F1EFE8"}}>
+                      <div style={{height:"100%",width:`${sc.p}%`,background:sc.p>=50?C2.a:sc.p>=25?"#EF9F27":"#D3D1C7",transition:"width 0.3s ease"}}/>
+                    </div>
+                    {open&&(
+                      <div style={{padding:14,background:"#fafaf9",borderTop:"1px solid #E8E6DF"}}>
+                        <div style={{fontSize:10,fontWeight:600,color:"#5F5E5A",textTransform:"uppercase",letterSpacing:0.5,marginBottom:9}}>Síntomas / marcadores clínicos</div>
+                        {b.sintomas.map(s=>(
+                          <label key={s.id} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:6,cursor:"pointer"}}>
+                            <div onClick={()=>toggle(s.id)} style={{width:16,height:16,borderRadius:4,border:`1.5px solid ${ck[s.id]?C2.a:"#D3D1C7"}`,background:ck[s.id]?C2.a:"#fff",flexShrink:0,marginTop:1,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",transition:"all 0.12s"}}>
+                              {ck[s.id]&&<span style={{color:"#fff",fontSize:9,fontWeight:700}}>✓</span>}
+                            </div>
+                            <div style={{fontSize:12,color:"#374151",lineHeight:1.4,flex:1}}>{s.t}</div>
+                            <span style={{fontSize:9.5,padding:"1px 5px",borderRadius:8,background:s.w===3?"#FCEBEB":s.w===2?"#FAEEDA":"#F1EFE8",color:s.w===3?"#A32D2D":s.w===2?"#854F0B":"#5F5E5A",fontWeight:600,whiteSpace:"nowrap",marginTop:2}}>×{s.w}</span>
+                          </label>
+                        ))}
+                        <div style={{marginTop:11,padding:9,background:"#f5f5f3",borderRadius:8,border:"1px solid #D3D1C7"}}>
+                          <div style={{fontSize:10,fontWeight:600,color:"#5F5E5A",marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Marcadores de laboratorio sugeridos</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                            {b.marcadores.map((m,i)=><span key={i} style={{fontSize:10.5,background:"#fff",border:`1px solid ${C2.a}55`,color:C2.m,padding:"2px 7px",borderRadius:12}}>{m}</span>)}
+                          </div>
+                        </div>
+                        <div style={{marginTop:8,padding:8,background:C2.bg,borderRadius:8,fontSize:11,color:C2.m,fontWeight:500,border:`1px solid ${C2.a}33`}}>
+                          Vulnerabilidad al exposoma: <strong>{b.vuln}</strong>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {topB.length>0&&(
+              <div style={{background:"#0F2544",borderRadius:12,padding:20,color:"#fff"}}>
+                <div style={{fontSize:14,fontWeight:500,marginBottom:12}}>Perfil biológico identificado</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
+                  {topB.map(s=>{const b=BIOTIPOS.find(x=>x.id===s.id);const C2=BCLR[b.id];return(
+                    <div key={s.id} style={{background:"rgba(255,255,255,0.1)",borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",gap:8,border:`1px solid ${C2.a}55`}}>
+                      <span style={{fontSize:18}}>{EMO[b.id]}</span>
+                      <div><div style={{fontSize:13,fontWeight:500}}>{b.nombre}</div><div style={{fontSize:11,opacity:0.7}}>Compatibilidad: {s.p}%</div></div>
+                    </div>
+                  );})}
+                </div>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                  <button onClick={()=>setTab("protocolo")} style={{background:"#fff",color:"#0F2544",border:"none",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:500,cursor:"pointer"}}>Ver protocolo personalizado →</button>
+                  <button onClick={genAI} disabled={aiLoad} style={{background:"rgba(255,255,255,0.12)",color:"#fff",border:"1px solid rgba(255,255,255,0.25)",borderRadius:8,padding:"9px 18px",fontSize:13,fontWeight:500,cursor:aiLoad?"wait":"pointer",opacity:aiLoad?0.7:1}}>
+                    {aiLoad?"Generando resumen clínico...":"✨ Generar resumen clínico con IA"}
+                  </button>
+                  {aiErr&&<span style={{fontSize:12,color:"#F09595"}}>{aiErr}</span>}
+                </div>
+                {aiTxt&&(
+                  <div style={{marginTop:16,background:"rgba(255,255,255,0.08)",borderRadius:8,padding:16,borderLeft:"3px solid rgba(255,255,255,0.18)"}}>
+                    <div style={{fontSize:10,fontWeight:600,marginBottom:8,opacity:0.6,textTransform:"uppercase",letterSpacing:0.5}}>Resumen clínico generado por IA</div>
+                    <div style={{fontSize:13,lineHeight:1.75,whiteSpace:"pre-wrap",opacity:0.95}}>{aiTxt}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════ TAB PROTOCOLO ═══════════ */}
+        {tab==="protocolo"&&(
+          <div>
+            <h1 style={{fontSize:18,fontWeight:500,color:"#2C2C2A",margin:"0 0 4px"}}>Protocolo clínico personalizado</h1>
+            <p style={{fontSize:12.5,color:"#5F5E5A",margin:"0 0 18px"}}>{topB.length>0?`Generado para: ${topB.map(s=>BIOTIPOS.find(b=>b.id===s.id).nombre).join(" + ")}`:"Completa la calculadora de biotipos para personalizar el protocolo."}</p>
+            {(topB.length>0?topB:[{id:1,p:0}]).slice(0,3).map(sc=>{
+              const b=BIOTIPOS.find(x=>x.id===sc.id);const C2=BCLR[b.id];
+              return(
+                <div key={b.id} style={{background:"#fff",borderRadius:12,marginBottom:14,overflow:"hidden",border:"1px solid #D3D1C7"}}>
+                  <div style={{background:C2.a,padding:"12px 18px",display:"flex",alignItems:"center",gap:10,color:"#fff"}}>
+                    <span style={{fontSize:20}}>{EMO[b.id]}</span>
+                    <div>
+                      <div style={{fontWeight:500,fontSize:15}}>{b.nombre}</div>
+                      {sc.p>0&&<div style={{fontSize:11,opacity:0.82}}>Compatibilidad: {sc.p}% · Vulnerabilidad: {b.vuln}</div>}
+                    </div>
+                  </div>
+                  <div style={{padding:18,display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+                    <div>
+                      <div style={{fontSize:10.5,fontWeight:600,color:"#5F5E5A",textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>Intervenciones prioritarias</div>
+                      {b.interv.map((iv,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,marginBottom:7}}>
+                          <div style={{width:18,height:18,background:C2.a,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}><span style={{color:"#fff",fontSize:9,fontWeight:700}}>{i+1}</span></div>
+                          <span style={{fontSize:12.5,color:"#374151",lineHeight:1.4}}>{iv}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <div style={{fontSize:10.5,fontWeight:600,color:"#5F5E5A",textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>Marcadores a solicitar</div>
+                      {b.marcadores.map((m,i)=><div key={i} style={{fontSize:12,color:"#374151",marginBottom:5,padding:"4px 8px",background:"#f9f8f6",borderRadius:6,border:"1px solid #E8E6DF"}}>🧪 {m}</div>)}
+                      <div style={{marginTop:10,padding:10,background:C2.bg,borderRadius:8,fontSize:12,color:C2.m,fontWeight:500,border:`1px solid ${C2.a}33`}}>Vulnerabilidad al exposoma: <strong>{b.vuln}</strong></div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{background:"#fff",borderRadius:12,border:"1px solid #D3D1C7",padding:18}}>
+              <div style={{fontSize:14,fontWeight:500,color:"#2C2C2A",marginBottom:14}}>💊 Suplementos relevantes para el perfil</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:10}}>
+                {SUPL.filter(s=>topB.length===0?s.fase===1:topB.some(tb=>s.bios.includes(tb.id))).sort((a,b)=>a.fase-b.fase).map(s=>{
+                  const ev=evC(s.ev);const fa=faseC(s.fase);
+                  return(
+                    <div key={s.id} style={{border:"1px solid #D3D1C7",borderRadius:8,padding:12,background:"#fafaf9"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
+                        <div style={{fontWeight:500,fontSize:13,color:"#1e293b",flex:1}}>{s.n}</div>
+                        <div style={{display:"flex",gap:3,flexShrink:0,marginLeft:6}}><Bdg bg={fa.bg} color={fa.c}>{fa.l}</Bdg><Bdg bg={ev.bg} color={ev.c}>{ev.l}</Bdg></div>
+                      </div>
+                      <div style={{fontSize:11.5,color:"#5F5E5A",marginBottom:3}}>Ped: {s.ped}</div>
+                      <div style={{fontSize:11.5,color:"#5F5E5A",marginBottom:5}}>{s.timing}</div>
+                      <div style={{display:"flex",gap:3}}>{BIOTIPOS.filter(b=>s.bios.includes(b.id)).map(b=><span key={b.id} title={b.nombre} style={{fontSize:14}}>{EMO[b.id]}</span>)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════ TAB SUPLEMENTOS ═══════════ */}
+        {tab==="suplementos"&&(
+          <div>
+            <h1 style={{fontSize:18,fontWeight:500,color:"#2C2C2A",margin:"0 0 4px"}}>Base de datos de suplementos</h1>
+            <p style={{fontSize:12.5,color:"#5F5E5A",margin:"0 0 16px"}}>Fichas clínicas completas con forma óptima, dosis, mecanismo, monitoreo e interacciones. [DR]</p>
+            <div style={{background:"#fff",borderRadius:10,padding:12,marginBottom:14,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",border:"1px solid #D3D1C7"}}>
+              <div style={{position:"relative",flex:1,minWidth:160}}>
+                <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888780",fontSize:14}}>🔍</span>
+                <input value={ss} onChange={e=>setSs(e.target.value)} placeholder="Buscar suplemento..." style={{width:"100%",border:"1px solid #D3D1C7",borderRadius:8,padding:"7px 10px 7px 28px",fontSize:13,outline:"none",background:"#fff",color:"#2C2C2A",boxSizing:"border-box"}}/>
+              </div>
+              {[
+                [sfev,setSfev,[["all","Toda evidencia"],["alta","Alta"],["media-alta","Media-alta"],["media","Media"]]],
+                [sffa,setSffa,[["all","Todas las fases"],["1","Fase 1"],["2","Fase 2"],["3","Fase 3"]]],
+                [sfbi,setSfbi,[["all","Todos los biotipos"],...BIOTIPOS.map(b=>[String(b.id),`${EMO[b.id]} ${b.nombre}`])]],
+              ].map(([val,set,opts],i)=>(
+                <select key={i} value={val} onChange={e=>set(e.target.value)} style={{border:"1px solid #D3D1C7",borderRadius:8,padding:"7px 10px",fontSize:12.5,background:"#fff",color:"#2C2C2A",cursor:"pointer"}}>
+                  {opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+                </select>
+              ))}
+            </div>
+            {SUPL.filter(s=>{
+              if(ss&&!s.n.toLowerCase().includes(ss.toLowerCase())&&!s.cat.toLowerCase().includes(ss.toLowerCase()))return false;
+              if(sfev!=="all"&&s.ev!==sfev)return false;
+              if(sffa!=="all"&&s.fase!==parseInt(sffa))return false;
+              if(sfbi!=="all"&&!s.bios.includes(parseInt(sfbi)))return false;
+              return true;
+            }).map(s=>{
+              const ev=evC(s.ev);const fa=faseC(s.fase);const isO=openS===s.id;
+              return(
+                <div key={s.id} style={{background:"#fff",borderRadius:10,marginBottom:6,border:"1px solid #D3D1C7",overflow:"hidden"}}>
+                  <div onClick={()=>setOpenS(isO?null:s.id)} style={{padding:"11px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:13.5,fontWeight:500,color:"#1e293b"}}>{s.n}</span>
+                        <Bdg bg={fa.bg} color={fa.c}>{fa.l}</Bdg>
+                        <Bdg bg={ev.bg} color={ev.c}>Evidencia {ev.l}</Bdg>
+                        <span style={{fontSize:11,color:"#888780"}}>{s.cat}</span>
+                      </div>
+                      <div style={{fontSize:11,color:"#5F5E5A",marginTop:2}}>{s.forma.substring(0,72)}...</div>
+                    </div>
+                    <div style={{display:"flex",gap:3,marginRight:8}}>{BIOTIPOS.filter(b=>s.bios.includes(b.id)).map(b=><span key={b.id} title={b.nombre} style={{fontSize:15}}>{EMO[b.id]}</span>)}</div>
+                    <span style={{fontSize:12,color:"#888780"}}>{isO?"▲":"▼"}</span>
+                  </div>
+                  {isO&&(
+                    <div style={{padding:"15px 18px",background:"#fafaf9",borderTop:"1px solid #E8E6DF",display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+                      <div>
+                        <FR label="Forma óptima" val={s.forma}/>
+                        <FR label="Dosis pediátrica" val={s.ped}/>
+                        <FR label="Dosis adulto" val={s.adulto}/>
+                        <FR label="Timing" val={s.timing}/>
+                        <FR label="Mecanismo" val={s.mec}/>
+                        <FR label="Interacciones" val={s.int}/>
+                      </div>
+                      <div>
+                        <FR label="Monitoreo" val={s.mono}/>
+                        <FR label="⚠️ Precauciones" val={s.prec} warn/>
+                        <div style={{marginTop:12,padding:10,background:"#F1EFE8",borderRadius:8,border:"1px solid #D3D1C7"}}>
+                          <div style={{fontSize:10.5,fontWeight:600,color:"#5F5E5A",marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Biotipos relevantes</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                            {BIOTIPOS.filter(b=>s.bios.includes(b.id)).map(b=>{const C2=BCLR[b.id];return<span key={b.id} style={{fontSize:11,padding:"2px 8px",borderRadius:12,background:C2.bg,color:C2.m,border:`1px solid ${C2.a}33`}}>{EMO[b.id]} {b.nombre}</span>;})}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ═══════════ TAB BIOMARCADORES ═══════════ */}
+        {tab==="biomarcadores"&&(
+          <div>
+            <h1 style={{fontSize:18,fontWeight:500,color:"#2C2C2A",margin:"0 0 4px"}}>Panel de biomarcadores y seguimiento</h1>
+            <p style={{fontSize:12.5,color:"#5F5E5A",margin:"0 0 16px"}}>[DR] — Panel clínico integrado para monitorear la respuesta al protocolo y la carga del exposoma.</p>
+            <div style={{background:"#fff",borderRadius:10,padding:12,marginBottom:14,display:"flex",gap:10,flexWrap:"wrap",border:"1px solid #D3D1C7"}}>
+              <div style={{position:"relative",flex:1,minWidth:160}}>
+                <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",color:"#888780"}}>🔍</span>
+                <input value={bsq} onChange={e=>setBsq(e.target.value)} placeholder="Buscar biomarcador..." style={{width:"100%",border:"1px solid #D3D1C7",borderRadius:8,padding:"7px 10px 7px 28px",fontSize:13,outline:"none",background:"#fff",color:"#2C2C2A",boxSizing:"border-box"}}/>
+              </div>
+              <select value={bcat} onChange={e=>setBcat(e.target.value)} style={{border:"1px solid #D3D1C7",borderRadius:8,padding:"7px 10px",fontSize:12.5,background:"#fff",color:"#2C2C2A",cursor:"pointer"}}>
+                <option value="all">Todas las categorías</option>
+                {[...new Set(BMARK.map(b=>b.cat))].map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:12}}>
+              {BMARK.filter(b=>{
+                if(bsq&&!b.n.toLowerCase().includes(bsq.toLowerCase()))return false;
+                if(bcat!=="all"&&b.cat!==bcat)return false;
+                return true;
+              }).map(b=>(
+                <div key={b.id} style={{background:"#fff",borderRadius:10,border:"1px solid #D3D1C7",padding:14}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                    <div style={{fontWeight:500,fontSize:13,color:"#1e293b",flex:1,marginRight:8}}>{b.n}</div>
+                    <Bdg bg="#F1EFE8" color="#5F5E5A" size={10}>{b.cat}</Bdg>
+                  </div>
+                  <div style={{marginBottom:10}}>
+                    <div style={{display:"flex",height:14,borderRadius:4,overflow:"hidden",marginBottom:3}}>
+                      <div style={{flex:1,background:"#FCEBEB",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:"#A32D2D",fontWeight:600}}>DEFICIENTE</div>
+                      <div style={{flex:1,background:"#FAEEDA",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:"#854F0B",fontWeight:600}}>INSUFICIENTE</div>
+                      <div style={{flex:2,background:"#EAF3DE",display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:"#3B6D11",fontWeight:600}}>ÓPTIMO</div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 2fr",gap:2,textAlign:"center"}}>
+                      <div style={{fontSize:10,color:"#A32D2D"}}>{b.def}</div>
+                      <div style={{fontSize:10,color:"#854F0B"}}>{b.insuf}</div>
+                      <div style={{fontSize:10,color:"#3B6D11",fontWeight:600}}>{b.opt}</div>
+                    </div>
+                  </div>
+                  <div style={{fontSize:11.5,color:"#5F5E5A",marginBottom:4}}><strong>Muestra:</strong> {b.muestra}</div>
+                  <div style={{fontSize:11.5,color:"#5F5E5A",marginBottom:6}}><strong>Frecuencia:</strong> {b.freq}</div>
+                  <div style={{fontSize:11,color:"#5F5E5A",background:"#f9f8f6",padding:"5px 8px",borderRadius:6,lineHeight:1.4}}>{b.rel}</div>
+                  <div style={{display:"flex",gap:6,marginTop:8}}>
+                    <Bdg bg="#F1EFE8" color="#5F5E5A" size={10}>Acceso: {b.acc}</Bdg>
+                    <Bdg bg="#F1EFE8" color="#5F5E5A" size={10}>Costo: {b.costo}</Bdg>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════ TAB PRIORIZACIÓN ═══════════ */}
+        {tab==="priorizacion"&&(
+          <div>
+            <h1 style={{fontSize:18,fontWeight:500,color:"#2C2C2A",margin:"0 0 4px"}}>Matriz de priorización clínica</h1>
+            <p style={{fontSize:12.5,color:"#5F5E5A",margin:"0 0 18px"}}>Impacto potencial (1–5) vs. factibilidad/adherencia (1–5). Haz clic en cualquier punto para ver detalles. [P+DR]</p>
+            <div style={{background:"#fff",borderRadius:12,border:"1px solid #D3D1C7",padding:20,marginBottom:14}}>
+              <div style={{position:"relative",width:"100%",paddingBottom:"44%",borderRadius:8,overflow:"hidden",background:"linear-gradient(to top right,#FCEBEB 0%,#FAEEDA 50%,#EAF3DE 100%)"}}>
+                {[{pos:{top:8,left:8},l:"Considerar",bg:"rgba(252,235,235,0.88)",c:"#A32D2D"},{pos:{top:8,right:8},l:"✓ Hacer primero",bg:"rgba(234,243,222,0.88)",c:"#3B6D11"},{pos:{bottom:8,left:8},l:"Evaluar evidencia",bg:"rgba(241,239,232,0.88)",c:"#5F5E5A"},{pos:{bottom:8,right:8},l:"Planificar",bg:"rgba(230,241,251,0.88)",c:"#185FA5"}].map((q,i)=>(
+                  <div key={i} style={{position:"absolute",...q.pos,fontSize:10,fontWeight:600,color:q.c,background:q.bg,padding:"2px 7px",borderRadius:4}}>{q.l}</div>
+                ))}
+                <div style={{position:"absolute",left:"50%",top:0,bottom:0,borderLeft:"1.5px dashed rgba(100,116,139,0.2)",transform:"translateX(-50%)"}}/>
+                <div style={{position:"absolute",top:"50%",left:0,right:0,borderTop:"1.5px dashed rgba(100,116,139,0.2)",transform:"translateY(-50%)"}}/>
+                {PRIO.map(item=>{
+                  const x=((item.fac-1)/4)*82+7;
+                  const y=100-((item.imp-1)/4)*82-7;
+                  const dotC={A:"#3B6D11",B:"#185FA5",C:"#854F0B",D:"#5F5E5A"}[item.q];
+                  const sel=matSel?.id===item.id;
+                  return(
+                    <div key={item.id} onClick={()=>setMatSel(sel?null:item)} title={item.n}
+                      style={{position:"absolute",left:`${x}%`,top:`${y}%`,width:22,height:22,borderRadius:"50%",background:dotC,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700,border:sel?"2.5px solid #0F2544":"2px solid rgba(255,255,255,0.7)",transform:"translate(-50%,-50%)",zIndex:10,boxShadow:sel?"0 0 0 3px rgba(15,37,84,0.15)":"none"}}>
+                      {item.id}
+                    </div>
+                  );
+                })}
+                <div style={{position:"absolute",bottom:2,left:"50%",transform:"translateX(-50%)",fontSize:9,color:"rgba(100,116,139,0.6)",fontWeight:600}}>FACTIBILIDAD →</div>
+              </div>
+              {matSel&&(
+                <div style={{marginTop:14,padding:12,background:"#F1EFE8",borderRadius:8,display:"flex",justifyContent:"space-between",alignItems:"flex-start",border:"1px solid #D3D1C7"}}>
+                  <div>
+                    <div style={{fontWeight:500,fontSize:14,color:"#1e293b"}}>#{matSel.id} {matSel.n}</div>
+                    <div style={{fontSize:12,color:"#5F5E5A",marginTop:4}}>Impacto: {matSel.imp}/5 · Factibilidad: {matSel.fac}/5 · Costo: {matSel.costo} · Evidencia: {matSel.ev}</div>
+                  </div>
+                  <Bdg bg={qMeta[matSel.q].bg} color={qMeta[matSel.q].c}>{qMeta[matSel.q].l}</Bdg>
+                </div>
+              )}
+            </div>
+            <div style={{background:"#fff",borderRadius:12,border:"1px solid #D3D1C7",overflow:"hidden"}}>
+              <div style={{padding:"10px 16px",background:"#F1EFE8",borderBottom:"1px solid #D3D1C7",display:"grid",gridTemplateColumns:"28px 1fr 80px 80px 80px 80px 130px",gap:8,fontSize:10,fontWeight:600,color:"#5F5E5A",textTransform:"uppercase",letterSpacing:0.4}}>
+                <div>#</div><div>Intervención</div><div>Impacto</div><div>Factibilidad</div><div>Costo</div><div>Evidencia</div><div>Cuadrante</div>
+              </div>
+              {[...PRIO].sort((a,b)=>(b.imp+b.fac)-(a.imp+a.fac)).map(item=>(
+                <div key={item.id} onClick={()=>setMatSel(matSel?.id===item.id?null:item)}
+                  style={{padding:"8px 16px",borderBottom:"1px solid #F1EFE8",display:"grid",gridTemplateColumns:"28px 1fr 80px 80px 80px 80px 130px",gap:8,alignItems:"center",fontSize:12.5,cursor:"pointer",background:matSel?.id===item.id?"#F1EFE8":"#fff",transition:"background 0.1s"}}>
+                  <div style={{color:"#888780",fontWeight:500,fontSize:11}}>{item.id}</div>
+                  <div style={{fontWeight:500,color:"#1e293b"}}>{item.n}</div>
+                  <div style={{color:"#EF9F27",fontSize:13}}>{"★".repeat(item.imp)}{"☆".repeat(5-item.imp)}</div>
+                  <div style={{color:"#EF9F27",fontSize:13}}>{"★".repeat(item.fac)}{"☆".repeat(5-item.fac)}</div>
+                  <div style={{color:"#5F5E5A",fontSize:11.5}}>{item.costo}</div>
+                  <div style={{color:"#5F5E5A",fontSize:11.5}}>{item.ev}</div>
+                  <div><Bdg bg={qMeta[item.q].bg} color={qMeta[item.q].c} size={10}>{qMeta[item.q].l}</Bdg></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════ TAB TIMELINE ═══════════ */}
+        {tab==="timeline"&&(
+          <div>
+            <h1 style={{fontSize:18,fontWeight:500,color:"#2C2C2A",margin:"0 0 4px"}}>Timeline de intervención</h1>
+            <p style={{fontSize:12.5,color:"#5F5E5A",margin:"0 0 18px"}}>Protocolo secuencial por fases temporales. [DR] — Basado en coherencia mecanística con el marco exposoma del paper.</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:14,marginBottom:16}}>
+              {PHASES.map(ph=>(
+                <div key={ph.id} style={{background:"#fff",borderRadius:12,border:"1px solid #D3D1C7",overflow:"hidden"}}>
+                  <div style={{background:ph.clr,color:"#fff",padding:"11px 15px"}}>
+                    <div style={{fontWeight:500,fontSize:15}}>{ph.titulo}</div>
+                    <div style={{fontSize:11,opacity:0.82,marginTop:1}}>{ph.sub}</div>
+                  </div>
+                  <div style={{padding:"8px 12px",background:ph.lt,borderBottom:`1px solid ${ph.clr}33`}}>
+                    <div style={{fontSize:9.5,fontWeight:600,color:ph.clr,textTransform:"uppercase",letterSpacing:0.4}}>Hito de evaluación</div>
+                    <div style={{fontSize:11.5,color:"#374151",marginTop:2,lineHeight:1.4}}>{ph.hito}</div>
+                  </div>
+                  <div style={{padding:13}}>
+                    {ph.items.map((item,i)=>{const tc=tpC[item.tp];return(
+                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:7,marginBottom:6}}>
+                        <span style={{fontSize:9,padding:"2px 5px",borderRadius:8,background:tc.bg,color:tc.c,fontWeight:600,whiteSpace:"nowrap",marginTop:1.5,flexShrink:0}}>{tc.l}</span>
+                        <span style={{fontSize:11.5,color:"#374151",lineHeight:1.35}}>{item.t}</span>
+                      </div>
+                    );})}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{background:"#fff",borderRadius:10,border:"1px solid #D3D1C7",padding:"11px 16px",marginBottom:12,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+              <span style={{fontSize:12,fontWeight:500,color:"#5F5E5A"}}>Leyenda:</span>
+              {Object.entries(tpC).map(([k,v])=><Bdg key={k} bg={v.bg} color={v.c}>{v.l}</Bdg>)}
+            </div>
+            <div style={{background:"#FCEBEB",borderRadius:10,border:"1px solid #F7C1C1",padding:"14px 18px"}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#A32D2D",marginBottom:8}}>⚠️ Señales de alerta durante el protocolo</div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:7}}>
+                {["Empeoramiento agudo del sueño → revisar 5-MTHF (posible COMT lento)","Irritabilidad nueva → verificar dosis de Zinc y Mg","Diarrea severa >3 días → reducir probióticos o cambiar forma de Mg","Reacción alérgica → suspender el último suplemento añadido","Empeoramiento con metilfolato → cambiar a folinato de calcio","Die-off transitorio (<14 días) → reducir dosis temporalmente"].map((w,i)=>(
+                  <div key={i} style={{fontSize:12,color:"#501313",padding:"5px 9px",background:"rgba(255,255,255,0.55)",borderRadius:6,lineHeight:1.4}}>• {w}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
